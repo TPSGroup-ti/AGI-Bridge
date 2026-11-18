@@ -1,0 +1,54 @@
+
+# 🔄 Auto-Deploy — ทำงานอัตโนมัติเมื่อ Push ไป main
+name: 🚀 Auto-Deploy via Deploy-Auto
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:  # สามารถสั่งทำงานเองจากหน้า GitHub ได้
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: 🚀 Trigger Deploy via Deploy-Auto
+    steps:
+      - name: ✅ ดึงโค้ด
+        uses: actions/checkout@v4
+
+      - name: 📦 ตั้งค่า Python
+        if: exists('requirements.txt')
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 📥 ติดตั้ง Dependencies
+        if: exists('requirements.txt')
+        run: pip install -r requirements.txt
+
+      - name: 🚀 สั่ง Deploy ผ่าน Deploy-Auto
+        env:
+          DEPLOY_AUTO_URL: ${{ secrets.DEPLOY_AUTO_URL }}
+          DEPLOY_AUTO_API_KEY: ${{ secrets.DEPLOY_AUTO_API_KEY }}
+          SYSTEM_NAME: ${{ github.event.repository.name }}
+        run: |
+          echo "🌐 กำลังส่งคำสั่ง Deploy ไปยัง Deploy-Auto..."
+          echo "โปรเจกต์: $SYSTEM_NAME"
+          
+          # ส่งคำสั่งไปยัง AGI-Bridge หรือ Deploy-Auto
+          if [ -n "$DEPLOY_AUTO_URL" ] && [ -n "$DEPLOY_AUTO_API_KEY" ]; then
+            curl -X POST "$DEPLOY_AUTO_URL/deploy/trigger" \
+              -H "Content-Type: application/json" \
+              -H "AGI-Access: $DEPLOY_AUTO_API_KEY" \
+              -d "{\"system_id\": \"$SYSTEM_NAME\", \"branch\": \"main\"}" || true
+            echo "✅ ส่งคำสั่งสำเร็จ"
+          else
+            echo "⚠️  ยังไม่ได้ตั้งค่า Secrets — ข้ามไป"
+          fi
+
+      - name: ✅ เสร็จสิ้น
+        run: |
+          echo "=================================================="
+          echo "✅ การทำงานเสร็จสิ้น — $(date)"
+          echo "📦 โปรเจกต์: ${{ github.repository }}"
+          echo "🌿 สาขา: ${{ github.ref_name }}"
+          echo "=================================================="
